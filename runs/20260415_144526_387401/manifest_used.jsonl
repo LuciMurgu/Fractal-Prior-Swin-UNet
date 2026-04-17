@@ -1,0 +1,6 @@
+{"id": "synth_3", "image_path": "synthetic://image_3", "mask_path": "synthetic://mask_3", "split": "train"}
+{"id": "synth_1", "image_path": "synthetic://image_1", "mask_path": "synthetic://mask_1", "split": "train"}
+{"id": "synth_2", "image_path": "synthetic://image_2", "mask_path": "synthetic://mask_2", "split": "train"}
+{"id": "synth_4", "image_path": "synthetic://image_4", "mask_path": "synthetic://mask_4", "split": "train"}
+{"id": "synth_0", "image_path": "synthetic://image_0", "mask_path": "synthetic://mask_0", "split": "val"}
+{"id": "synth_5", "image_path": "synthetic://image_5", "mask_path": "synthetic://mask_5", "split": "test"}

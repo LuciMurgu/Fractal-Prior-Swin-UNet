@@ -1,0 +1,54 @@
+seed: 42
+model:
+  name: fractal_prior
+  in_channels: 3
+  embed_dim: 16
+  depths: [1, 1, 1]
+  enable_fractal_gate: true
+  alpha: 1.0
+train:
+  epochs: 1
+  steps_per_epoch: 2
+  batch_size: 2
+  lr: 0.001
+  out_dir: runs/smoke
+  checkpoint_path: runs/smoke/checkpoint.pt
+data:
+  image_size: 128
+  patch_size: 64
+  synth:
+    num_samples: 6
+  split:
+    mode: sample
+    seed: 42
+    locked: false
+    allow_leakage: false
+    ratios:
+      train: 0.6
+      val: 0.2
+      test: 0.2
+  return_fractal_prior: true
+fractal_prior:
+  enabled: true
+  engine: dbc_lfd
+  grayscale:
+    enabled: true
+    mode: luminance
+  normalize:
+    mode: per_patch
+    eps: 1e-6
+  lfd:
+    window: 15
+    stride: 4
+    box_sizes: [2, 4, 8, 16]
+    fast_mode: true
+  caching:
+    enabled: true
+    mode: disk
+    cache_dir: cache/fractal_prior
+    write: true
+    read: true
+  precompute:
+    enabled: true
+    store_full_map_in_memory: false
+    dtype: float16

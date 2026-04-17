@@ -1,0 +1,14 @@
+data:
+  dataset: "hrf"
+  dataset_root: "/home/lucian/Retina Datasets/HRF"
+  manifest_path: "manifests/hrf.jsonl"
+  split:
+    mode: "sample"
+    seed: 123
+    ratios:
+      train: 0.6
+      val: 0.2
+      test: 0.2
+  patch_size: [512, 512]
+  patch_sampling:
+    enabled: false

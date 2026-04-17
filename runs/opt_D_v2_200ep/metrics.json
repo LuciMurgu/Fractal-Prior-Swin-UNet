@@ -1,0 +1,21 @@
+{
+  "train_dice": 0.048317987471818924,
+  "val_dice": 0.9248154163360596,
+  "checkpoint_path": "runs/opt_D_v2_200ep/checkpoint.pt",
+  "best_full_eval_dice": 0.841331958770752,
+  "best_full_eval_cldice": 0.0,
+  "best_full_eval_epoch": 100,
+  "best_full_eval_tau_star": 0.7,
+  "best_checkpoint_path": "runs/opt_D_v2_200ep/checkpoint_best.pt",
+  "loss_total": 1.0246200561523438,
+  "loss_dice": 0.9511343240737915,
+  "loss_bce": 0.04588882252573967,
+  "loss_focal": 0.012105218134820461,
+  "loss_cldice": 0.10554546117782593,
+  "loss_soft_dbc": 0.0,
+  "loss_cbdice": 0.0,
+  "loss_skel_recall": 0.0,
+  "loss_fractal_bce": 0.0,
+  "loss_tv": 0.0,
+  "loss_curvature": 0.0
+}

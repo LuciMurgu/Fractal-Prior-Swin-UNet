@@ -1,0 +1,32 @@
+# HRF: baseline SwinUNetTiny vs FractalPriorSwinUNet (same data, split, and train budget).
+# Base config: full HRF path + manifests/hrf_full.jsonl (see configs/hrf_full.yaml). Long runs.
+#
+# Run:
+#   python -m fractal_swin_unet.exp.run --matrix configs/matrices/hrf_ablation_matrix.yaml
+#
+# Reports under reports/; per-experiment runs under runs/hrf_ablation_<exp>_<timestamp>/.
+
+matrix:
+  name: "hrf_ablation"
+  base_out_dir: "runs"
+  reports_dir: "reports"
+  use_synth_data: false
+  seed: 42
+  steps:
+    train: true
+    eval: true
+    infer: true
+  infer_samples_per_run: 3
+  eval_split: "val"
+
+experiments:
+  - name: "baseline"
+    config: "configs/hrf_full.yaml"
+    overrides:
+      model.name: "baseline"
+
+  - name: "fractal_prior"
+    config: "configs/hrf_full.yaml"
+    overrides:
+      model.name: "fractal_prior"
+      model.enable_fractal_gate: true

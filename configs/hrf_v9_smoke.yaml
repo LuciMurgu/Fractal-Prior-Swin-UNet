@@ -1,0 +1,137 @@
+# V9 Fractal Innovations — SMOKE TEST (CPU, 3 epochs, 5 steps)
+# Tests: multi-scale FFM, cbDice, skeleton recall, fractal-weighted BCE,
+# multi-decoder (edge + skeleton), FD regression, Haar DWT freq-geom.
+# Uses HRF manifest for real-data pipeline testing.
+
+seed: 42
+model:
+  name: fractal_prior
+  in_channels: 3
+  embed_dim: 16        # tiny for smoke
+  depths: [1, 1, 1]    # minimal depth
+  drop_rate: 0.0
+  enable_fractal_gate: true
+  alpha: 1.0
+  prior_fusion:
+    enabled: true
+  prior_channels: 4    # 3 LFD scales + 1 lacunarity
+  multi_decoder:
+    enabled: true
+  fd_regression:
+    enabled: true
+    weight: 0.1
+  freq_geom:
+    enabled: true
+
+train:
+  epochs: 3
+  steps_per_epoch: 5
+  batch_size: 1
+  accumulate_grad_steps: 1
+  lr: 0.001
+  weight_decay: 0.01
+  grad_clip_norm: 1.0
+  scheduler:
+    type: cosine
+    eta_min: 1e-6
+  out_dir: runs/hrf_v9_smoke
+  checkpoint_path: runs/hrf_v9_smoke/checkpoint.pt
+  save_every_epochs: 0
+  full_eval_every_epochs: 0
+  full_eval_max_samples: 0
+  amp: false
+
+data:
+  dataset: hrf
+  dataset_root: "/home/lucian/medical-imaging-ai/Retina Datasets/Full retina dataset/HRF"
+  manifest_path: "manifests/hrf_full.jsonl"
+  split:
+    mode: sample
+    seed: 123
+    ratios:
+      train: 0.6
+      val: 0.2
+      test: 0.2
+  patch_size: [128, 128]   # small for speed
+  patch_sampling:
+    enabled: true
+    mode: vessel_aware
+    p_vessel: 0.7
+    p_background: 0.3
+    vessel_buffer: 3
+    background_buffer: 2
+    fractal_hard:
+      enabled: false
+  return_fov: true
+  photometric_aug:
+    enabled: false
+  clahe:
+    enabled: false
+  return_fractal_prior: true
+
+eval:
+  checkpoint_path: runs/hrf_v9_smoke/checkpoint.pt
+  full_image: true
+  threshold:
+    default: 0.5
+    use_tau_star_if_available: true
+  threshold_sweep:
+    enabled: true
+    grid: [0.30, 0.50, 0.70]
+  fov:
+    enabled: true
+    key: fov_mask_path
+    ignore_outside: true
+
+infer:
+  mode: tiled
+  save_probs: true
+  save_overlay: false
+  out_subdir: preds
+  tiled:
+    patch_size: [128, 128]
+    stride: [64, 64]
+    pad_mode: reflect
+    blend: hann
+    batch_tiles: 4
+    eps: 1e-6
+
+loss:
+  from_logits: true
+  dice:
+    enabled: true
+    weight: 1.0
+  bce:
+    enabled: true
+    weight: 1.0
+    pos_weight: 20.0
+  focal:
+    enabled: false
+  cldice:
+    enabled: false
+  cbdice:
+    enabled: true
+    weight: 0.15
+    iter: 3
+  skeleton_recall:
+    enabled: true
+    weight: 0.1
+    iter: 3
+  fractal_bce:
+    enabled: true
+    weight: 0.5
+    alpha: 1.0
+    pos_weight: 20.0
+  edge_aux:
+    enabled: true
+    weight: 0.5
+  skeleton_aux:
+    enabled: true
+    weight: 0.5
+
+fractal_prior:
+  enabled: true
+  multi_scale:
+    enabled: true
+    factors: [1, 2, 4]
+    include_lacunarity: true

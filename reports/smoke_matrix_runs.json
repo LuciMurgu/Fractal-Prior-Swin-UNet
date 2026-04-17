@@ -1,0 +1,14 @@
+{
+  "baseline_uniform": {
+    "run_id": "smoke_matrix_baseline_uniform_20260407_071247_159318",
+    "run_dir": "runs/smoke_matrix_baseline_uniform_20260407_071247_159318"
+  },
+  "fractal_uniform": {
+    "run_id": "smoke_matrix_fractal_uniform_20260407_071249_670227",
+    "run_dir": "runs/smoke_matrix_fractal_uniform_20260407_071249_670227"
+  },
+  "fractal_topology_loss": {
+    "run_id": "smoke_matrix_fractal_topology_loss_20260407_071249_962541",
+    "run_dir": "runs/smoke_matrix_fractal_topology_loss_20260407_071249_962541"
+  }
+}

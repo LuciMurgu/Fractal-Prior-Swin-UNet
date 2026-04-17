@@ -1,0 +1,36 @@
+matrix:
+  name: "smoke_matrix"
+  base_out_dir: "runs"
+  reports_dir: "reports"
+  use_synth_data: true
+  seed: 123
+  steps:
+    train: true
+    eval: true
+    infer: true
+  infer_samples_per_run: 3
+  eval_split: "val"
+
+experiments:
+  - name: "baseline_uniform"
+    config: "configs/smoke.yaml"
+    overrides:
+      model.name: "baseline"
+      data.patch_sampling.enabled: false
+      loss.cldice.enabled: false
+      loss.focal.enabled: false
+
+  - name: "fractal_uniform"
+    config: "configs/smoke.yaml"
+    overrides:
+      model.name: "fractal_prior"
+      fractal_prior.enabled: true
+      data.patch_sampling.enabled: false
+
+  - name: "fractal_topology_loss"
+    config: "configs/smoke_losses_topology.yaml"
+    overrides:
+      model.name: "fractal_prior"
+      fractal_prior.enabled: true
+      loss.cldice.enabled: true
+      loss.cldice.weight: 0.2

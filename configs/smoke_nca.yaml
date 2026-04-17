@@ -1,0 +1,42 @@
+seed: 42
+model:
+  name: fractal_prior
+  in_channels: 3
+  embed_dim: 16
+  depths: [1, 1, 1]
+  enable_fractal_gate: true
+  alpha: 1.0
+  nca:
+    enabled: true
+    hidden: 16
+    steps: 4
+    stochastic_rate: 0.5
+train:
+  epochs: 2
+  steps_per_epoch: 2
+  batch_size: 2
+  lr: 0.001
+  grad_clip_norm: 1.0
+  nca_freeze_until_epoch: 1
+
+data:
+  image_size: 128
+  patch_size: 96
+  synth:
+    num_samples: 6
+  split:
+    mode: sample
+    seed: 42
+    locked: false
+    allow_leakage: false
+    ratios:
+      train: 0.6
+      val: 0.2
+      test: 0.2
+eval:
+  checkpoint_path: runs/smoke_nca/checkpoint.pt
+  threshold:
+    default: 0.5
+  threshold_sweep:
+    enabled: true
+    grid: [0.10, 0.20, 0.30, 0.40, 0.50, 0.60, 0.70, 0.80, 0.90]

@@ -1,0 +1,30 @@
+[build-system]
+requires = ["hatchling>=1.24.2"]
+build-backend = "hatchling.build"
+
+[project]
+name = "fractal-swin-unet"
+version = "0.1.0"
+description = "Fractal-Prior Swin-UNet scaffold for retinal vessel segmentation"
+readme = "docs/README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Your Name" }]
+dependencies = [
+  "numpy>=1.26",
+  "torch>=2.2",
+  "torchvision>=0.17",
+  "python-docx>=1.1",
+  "PyYAML>=6.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.4"]
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/fractal_swin_unet"]

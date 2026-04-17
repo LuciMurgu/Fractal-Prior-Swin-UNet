@@ -1,0 +1,20 @@
+{
+  "train_dice": 0.8841086030006409,
+  "val_dice": 0.9193084239959717,
+  "checkpoint_path": "runs/xdataset_fives_fractal/checkpoint.pt",
+  "best_full_eval_dice": 0.834831714630127,
+  "best_full_eval_epoch": 50,
+  "best_full_eval_tau_star": 0.75,
+  "best_checkpoint_path": "runs/xdataset_fives_fractal/checkpoint_best.pt",
+  "loss_total": 0.14716826379299164,
+  "loss_dice": 0.11588186025619507,
+  "loss_bce": 0.02241630293428898,
+  "loss_focal": 0.007603130303323269,
+  "loss_cldice": 0.06758147478103638,
+  "loss_soft_dbc": 0.0,
+  "loss_cbdice": 0.0,
+  "loss_skel_recall": 0.0,
+  "loss_fractal_bce": 0.0,
+  "loss_tv": 0.0,
+  "loss_curvature": 0.0
+}

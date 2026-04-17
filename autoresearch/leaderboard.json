@@ -1,0 +1,178 @@
+[
+  {
+    "run_id": "baseline_H",
+    "dice": 0.8096,
+    "mutations": [
+      "Config H baseline"
+    ],
+    "is_improvement": true,
+    "timestamp": "2026-04-10T10:39:27.256013",
+    "config_snapshot": {
+      "model.embed_dim": 32,
+      "model.depths": [
+        1,
+        1,
+        1
+      ],
+      "model.fractal_diffusion_spade.hidden_dim": 32,
+      "model.fractal_diffusion_spade.n_steps": 5,
+      "train.lr": 0.0005,
+      "train.weight_decay": 0.01,
+      "train.steps_per_epoch": 220,
+      "train.grad_clip_norm": 1.0,
+      "loss.skeleton_recall.weight": 0.15,
+      "loss.fractal_bce.weight": 0.1,
+      "loss.fractal_bce.alpha": 1.5,
+      "loss.cldice.weight": 0.12,
+      "loss.focal.weight": 0.1,
+      "data.patch_size": [
+        384,
+        384
+      ],
+      "data.patch_sampling.p_vessel": 0.7,
+      "data.photometric_aug.brightness": 0.08,
+      "data.photometric_aug.contrast": 0.15
+    }
+  },
+  {
+    "run_id": "autoresearch_000",
+    "dice": 0.7893019914627075,
+    "mutations": [
+      "data.patch_size: [384, 384] \u2192 [256, 256]"
+    ],
+    "is_improvement": false,
+    "timestamp": "2026-04-10T11:18:40.095901",
+    "config_snapshot": {
+      "model.embed_dim": 32,
+      "model.depths": [
+        1,
+        1,
+        1
+      ],
+      "model.fractal_diffusion_spade.hidden_dim": 32,
+      "model.fractal_diffusion_spade.n_steps": 5,
+      "train.lr": 0.0005,
+      "train.weight_decay": 0.01,
+      "train.steps_per_epoch": 220,
+      "train.grad_clip_norm": 1.0,
+      "loss.skeleton_recall.weight": 0.15,
+      "loss.fractal_bce.weight": 0.1,
+      "loss.fractal_bce.alpha": 1.5,
+      "loss.cldice.weight": 0.12,
+      "loss.focal.weight": 0.1,
+      "data.patch_size": [
+        256,
+        256
+      ],
+      "data.patch_sampling.p_vessel": 0.7,
+      "data.photometric_aug.brightness": 0.08,
+      "data.photometric_aug.contrast": 0.15
+    }
+  },
+  {
+    "run_id": "autoresearch_001",
+    "dice": 0.797271728515625,
+    "mutations": [
+      "data.photometric_aug.contrast: 0.15 \u2192 0.1",
+      "loss.skeleton_recall.weight: 0.15 \u2192 0.2"
+    ],
+    "is_improvement": false,
+    "timestamp": "2026-04-10T12:00:25.890056",
+    "config_snapshot": {
+      "model.embed_dim": 32,
+      "model.depths": [
+        1,
+        1,
+        1
+      ],
+      "model.fractal_diffusion_spade.hidden_dim": 32,
+      "model.fractal_diffusion_spade.n_steps": 5,
+      "train.lr": 0.0005,
+      "train.weight_decay": 0.01,
+      "train.steps_per_epoch": 220,
+      "train.grad_clip_norm": 1.0,
+      "loss.skeleton_recall.weight": 0.2,
+      "loss.fractal_bce.weight": 0.1,
+      "loss.fractal_bce.alpha": 1.5,
+      "loss.cldice.weight": 0.12,
+      "loss.focal.weight": 0.1,
+      "data.patch_size": [
+        384,
+        384
+      ],
+      "data.patch_sampling.p_vessel": 0.7,
+      "data.photometric_aug.brightness": 0.08,
+      "data.photometric_aug.contrast": 0.1
+    }
+  },
+  {
+    "run_id": "autoresearch_002",
+    "dice": 0.7969246506690979,
+    "mutations": [
+      "loss.fractal_bce.weight: 0.1 \u2192 0.2"
+    ],
+    "is_improvement": false,
+    "timestamp": "2026-04-10T12:43:32.948737",
+    "config_snapshot": {
+      "model.embed_dim": 32,
+      "model.depths": [
+        1,
+        1,
+        1
+      ],
+      "model.fractal_diffusion_spade.hidden_dim": 32,
+      "model.fractal_diffusion_spade.n_steps": 5,
+      "train.lr": 0.0005,
+      "train.weight_decay": 0.01,
+      "train.steps_per_epoch": 220,
+      "train.grad_clip_norm": 1.0,
+      "loss.skeleton_recall.weight": 0.15,
+      "loss.fractal_bce.weight": 0.2,
+      "loss.fractal_bce.alpha": 1.5,
+      "loss.cldice.weight": 0.12,
+      "loss.focal.weight": 0.1,
+      "data.patch_size": [
+        384,
+        384
+      ],
+      "data.patch_sampling.p_vessel": 0.7,
+      "data.photometric_aug.brightness": 0.08,
+      "data.photometric_aug.contrast": 0.15
+    }
+  },
+  {
+    "run_id": "autoresearch_003",
+    "dice": 0.7970548868179321,
+    "mutations": [
+      "loss.cldice.weight: 0.12 \u2192 0.15"
+    ],
+    "is_improvement": false,
+    "timestamp": "2026-04-10T13:25:21.832964",
+    "config_snapshot": {
+      "model.embed_dim": 32,
+      "model.depths": [
+        1,
+        1,
+        1
+      ],
+      "model.fractal_diffusion_spade.hidden_dim": 32,
+      "model.fractal_diffusion_spade.n_steps": 5,
+      "train.lr": 0.0005,
+      "train.weight_decay": 0.01,
+      "train.steps_per_epoch": 220,
+      "train.grad_clip_norm": 1.0,
+      "loss.skeleton_recall.weight": 0.15,
+      "loss.fractal_bce.weight": 0.1,
+      "loss.fractal_bce.alpha": 1.5,
+      "loss.cldice.weight": 0.15,
+      "loss.focal.weight": 0.1,
+      "data.patch_size": [
+        384,
+        384
+      ],
+      "data.patch_sampling.p_vessel": 0.7,
+      "data.photometric_aug.brightness": 0.08,
+      "data.photometric_aug.contrast": 0.15
+    }
+  }
+]

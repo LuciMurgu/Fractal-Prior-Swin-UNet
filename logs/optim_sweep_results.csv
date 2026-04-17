@@ -1,0 +1,5 @@
+config,run_id,best_dice,best_cldice,tau_star,train_dice,val_dice,status
+configs/optim/OPT_A_more_pde_steps.yaml,opt_A_pde15,0.824739933013916,?,0.8,0.8824784159660339,0.9188662171363831,ok
+configs/optim/OPT_B_finer_lfd.yaml,opt_B_finer_lfd,0.8309545516967773,?,0.75,0.8829666376113892,0.9173246622085571,ok
+configs/optim/OPT_C_bigger_spade_skel.yaml,opt_C_spade64_skel,0.8226678967475891,?,0.8,0.8853021860122681,0.9167487621307373,ok
+configs/optim/OPT_D_longer_training.yaml,opt_D_longer,0.841331958770752,?,0.7,0.8682586550712585,0.9226561784744263,ok

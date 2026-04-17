@@ -1,0 +1,57 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+*.egg
+dist/
+build/
+*.so
+
+# Virtual environment
+.venv/
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Model checkpoints & run artifacts (large binary files)
+runs/*/checkpoint*.pt
+runs/*/checkpoint_best.pt
+runs/*.log
+runs/preds.pt
+
+# Cache directories
+cache/
+*.cache
+
+# Dataset files (user-specific paths)
+manifests/*.jsonl
+
+# PyTorch/CUDA
+*.pt
+*.pth
+*.onnx
+
+# Keep configs and metrics, exclude heavy binaries
+!configs/**
+!runs/*/metrics.json
+!runs/*/resolved_config.yaml
+!runs/*/threshold.json
+!runs/*/code_hash.txt
+
+# Logs
+*.log
+nohup.out
+
+# Antigravity / agent metadata
+.gemini/

@@ -1,0 +1,5 @@
+|experiment|run_id|best_dice_val|dice_at_0_5_val|best_tau|train_dice|val_dice|code_hash|manifest_hash|
+|---|---|---|---|---|---|---|---|---|
+|baseline_uniform|smoke_matrix_baseline_uniform_20260407_071247_159318|0.6667631268501282|0.6660855412483215|0.1|None|None|None|947f3fe0b76a80bb898dbb6a9351baa81ada2006a294760d847a278d03a983bb|
+|fractal_uniform|smoke_matrix_fractal_uniform_20260407_071249_670227|0.6667631268501282|0.6666666865348816|0.1|None|None|None|947f3fe0b76a80bb898dbb6a9351baa81ada2006a294760d847a278d03a983bb|
+|fractal_topology_loss|smoke_matrix_fractal_topology_loss_20260407_071249_962541|0.6667631268501282|0.6665701866149902|0.1|None|None|None|947f3fe0b76a80bb898dbb6a9351baa81ada2006a294760d847a278d03a983bb|

@@ -1,0 +1,125 @@
+seed: 42
+model:
+  name: fractal_prior
+  in_channels: 3
+  embed_dim: 32
+  depths:
+  - 1
+  - 1
+  - 1
+  enable_fractal_gate: false
+  alpha: 1.0
+  prior_fusion:
+    enabled: false
+  prior_channels: 1
+  fractal_spade:
+    enabled: false
+  fractal_diffusion_spade:
+    enabled: true
+    n_steps: 5
+    prior_channels: 3
+    hidden_dim: 32
+    use_hessian_direction: false
+  freq_geom:
+    enabled: false
+train:
+  epochs: 60
+  steps_per_epoch: 220
+  batch_size: 1
+  lr: 0.0005
+  weight_decay: 0.01
+  amp: true
+  grad_clip_norm: 1.0
+  scheduler:
+    type: cosine
+    eta_min: 1.0e-06
+  save_every_epochs: 10
+  full_eval_every_epochs: 10
+  full_eval_max_samples: 0
+data:
+  dataset: hrf
+  dataset_root: /home/lucian/medical-imaging-ai/Retina Datasets/Full retina dataset/HRF
+  manifest_path: manifests/hrf_full.jsonl
+  split:
+    mode: sample
+    seed: 123
+    ratios:
+      train: 0.6
+      val: 0.2
+      test: 0.2
+  patch_size:
+  - 384
+  - 384
+  patch_sampling:
+    enabled: true
+    mode: vessel_aware
+    p_vessel: 0.7
+    p_background: 0.3
+    vessel_buffer: 3
+    background_buffer: 2
+  return_fov: true
+  photometric_aug:
+    enabled: true
+    brightness: 0.08
+    contrast: 0.15
+    gamma: 0.15
+  return_fractal_prior: true
+eval:
+  full_image: true
+  threshold:
+    default: 0.5
+    use_tau_star_if_available: true
+  threshold_sweep:
+    enabled: true
+    grid:
+    - 0.1
+    - 0.15
+    - 0.2
+    - 0.25
+    - 0.3
+    - 0.35
+    - 0.4
+    - 0.45
+    - 0.5
+    - 0.55
+    - 0.6
+    - 0.65
+    - 0.7
+    - 0.75
+    - 0.8
+    - 0.85
+    - 0.9
+  fov:
+    enabled: true
+    key: fov_mask_path
+    ignore_outside: true
+infer:
+  mode: tiled
+  tiled:
+    patch_size:
+    - 384
+    - 384
+    stride:
+    - 192
+    - 192
+    pad_mode: reflect
+    blend: hann
+    batch_tiles: 4
+    eps: 1.0e-06
+loss:
+  focal:
+    enabled: true
+    weight: 0.1
+  cldice:
+    enabled: true
+    weight: 0.12
+    iter: 10
+  skeleton_recall:
+    enabled: false
+  fractal_bce:
+    enabled: false
+fractal_prior:
+  enabled: true
+run:
+  id: ablation_v2_D_pde_spade2
+  base: runs
