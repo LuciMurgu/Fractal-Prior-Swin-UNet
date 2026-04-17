@@ -97,18 +97,41 @@ def cldice_loss(
     smooth: float = 1.0,
     eps: float = 1e-6,
 ) -> torch.Tensor:
+    """Soft clDice loss (1 - clDice).
+
+    Degenerate-case handling: if either skeleton is empty (sum ≤ eps),
+    the corresponding tprec/tsens is set to 0, yielding loss = 1.0.
+    This prevents collapsed (all-zero) predictions from being rewarded.
+    """
     probs = probs.clamp(0.0, 1.0)
     targets = targets.float()
     sp = soft_skeletonize(probs, iters)
     sg = soft_skeletonize(targets, iters)
 
-    tprec = (sp * targets).sum(dim=(2, 3))
-    tprec = (tprec + eps) / (sp.sum(dim=(2, 3)) + eps)
+    sp_sum = sp.sum(dim=(2, 3))
+    sg_sum = sg.sum(dim=(2, 3))
 
-    tsens = (sg * probs).sum(dim=(2, 3))
-    tsens = (tsens + eps) / (sg.sum(dim=(2, 3)) + eps)
+    # Precision: skeleton(pred) covered by GT; empty skeleton → 0
+    tprec = torch.where(
+        sp_sum > eps,
+        (sp * targets).sum(dim=(2, 3)) / (sp_sum + eps),
+        torch.zeros_like(sp_sum),
+    )
 
-    cldice = (2 * tprec * tsens + smooth) / (tprec + tsens + smooth)
+    # Sensitivity: skeleton(GT) covered by pred; empty skeleton → 0
+    tsens = torch.where(
+        sg_sum > eps,
+        (sg * probs).sum(dim=(2, 3)) / (sg_sum + eps),
+        torch.zeros_like(sg_sum),
+    )
+
+    # Harmonic mean; degenerate (tprec + tsens ≈ 0) → clDice = 0 → loss = 1
+    denom = tprec + tsens
+    cldice = torch.where(
+        denom > eps,
+        (2 * tprec * tsens + smooth) / (denom + smooth),
+        torch.zeros_like(denom),
+    )
     return (1 - cldice).mean()
 
 

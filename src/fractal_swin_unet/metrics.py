@@ -49,6 +49,10 @@ def cldice_score(
     Unlike the soft clDice *loss*, this operates on hard binary predictions
     and returns a *score* (higher is better).
 
+    Degenerate-case handling: if either skeleton is empty (sum ≤ eps),
+    the corresponding tprec/tsens is set to 0, yielding clDice = 0 for
+    that sample. This prevents empty predictions from scoring 1.0.
+
     Args:
         preds: Binary predictions (B, 1, H, W), values in {0, 1}.
         targets: Binary ground truth (B, 1, H, W).
@@ -72,12 +76,31 @@ def cldice_score(
     sp = soft_skeletonize(preds, iters)
     sg = soft_skeletonize(targets, iters)
 
-    # Topology precision: skeleton(pred) covered by GT
-    tprec = (sp * targets).sum(dim=(2, 3)) / (sp.sum(dim=(2, 3)) + eps)
-    # Topology sensitivity: skeleton(GT) covered by pred
-    tsens = (sg * preds).sum(dim=(2, 3)) / (sg.sum(dim=(2, 3)) + eps)
+    sp_sum = sp.sum(dim=(2, 3))  # (B, 1)
+    sg_sum = sg.sum(dim=(2, 3))  # (B, 1)
 
-    cldice = (2 * tprec * tsens + eps) / (tprec + tsens + eps)
+    # Topology precision: skeleton(pred) covered by GT
+    # If pred skeleton is empty → tprec = 0 (no topology to evaluate)
+    tprec = torch.where(
+        sp_sum > eps,
+        (sp * targets).sum(dim=(2, 3)) / (sp_sum + eps),
+        torch.zeros_like(sp_sum),
+    )
+    # Topology sensitivity: skeleton(GT) covered by pred
+    # If GT skeleton is empty → tsens = 0
+    tsens = torch.where(
+        sg_sum > eps,
+        (sg * preds).sum(dim=(2, 3)) / (sg_sum + eps),
+        torch.zeros_like(sg_sum),
+    )
+
+    # Harmonic mean; degenerate (both 0) → clDice = 0
+    denom = tprec + tsens
+    cldice = torch.where(
+        denom > eps,
+        2 * tprec * tsens / (denom + eps),
+        torch.zeros_like(denom),
+    )
     return cldice.mean()
 
 
