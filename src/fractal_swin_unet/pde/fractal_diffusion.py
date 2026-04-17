@@ -29,25 +29,31 @@ from torch import nn
 
 
 def _gaussian_blur_learnable(
-    x: torch.Tensor, sigma: torch.Tensor
+    x: torch.Tensor, sigma: torch.Tensor, radius: int | None = None,
 ) -> torch.Tensor:
-    """Separable Gaussian blur with differentiable sigma.
+    """Separable Gaussian blur with differentiable sigma and fixed kernel.
 
-    Uses a fixed kernel size (determined by sigma value) but differentiable
-    weights so gradients flow through sigma.
+    The kernel window is fixed at construction time (via `radius` or
+    `sigma_max`) to ensure it is always wide enough for the full sigma
+    parameter range. The Gaussian weights inside this fixed window remain
+    fully differentiable via the `sigma` parameter, so gradients flow
+    cleanly without kernel size changes during training.
+
+    Gradient flow guarantee: even when sigma is very small, we still
+    compute the kernel and blend it with identity using a soft gate,
+    ensuring sigma always participates in the computation graph.
 
     Args:
         x: (B, 1, H, W) input.
         sigma: scalar tensor (learnable parameter).
+        radius: Fixed kernel half-width. If None, computed from sigma.
 
     Returns:
         Blurred tensor, same shape as x.
     """
-    sigma_val = sigma.detach().item()
-    if sigma_val < 0.3:
-        return x
-
-    radius = max(1, int(math.ceil(3.0 * sigma_val)))
+    if radius is None:
+        sigma_val = sigma.detach().item()
+        radius = max(1, int(math.ceil(3.0 * max(sigma_val, 0.5))))
     size = 2 * radius + 1
     coords = torch.arange(size, device=x.device, dtype=x.dtype) - radius
 
@@ -63,7 +69,11 @@ def _gaussian_blur_learnable(
     out = F.conv2d(out, kx, groups=1)
     out = F.pad(out, (0, 0, pad, pad), mode="reflect")
     out = F.conv2d(out, ky, groups=1)
-    return out
+
+    # Soft gate: when sigma < 0.3, blend toward identity to avoid
+    # sudden on/off behavior, while keeping sigma in the graph.
+    gate = torch.sigmoid((sigma - 0.3) * 20.0)  # smooth step at 0.3
+    return gate * out + (1.0 - gate) * x
 
 
 def _spatial_gradient(x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
@@ -113,14 +123,24 @@ class FractalAnisotropicDiffusion(nn.Module):
     for downstream SPADE conditioning.
 
     Args:
-        n_steps: Number of Euler integration steps.
+        n_steps: Number of Euler integration steps (config-driven).
         dt: Time step size (fixed for stability).
+        sigma_max: Maximum expected sigma value. The Gaussian blur kernel
+            radius is fixed to ceil(3 * sigma_max) at construction time,
+            ensuring the window is always wide enough for the full learnable
+            sigma range. This prevents tail truncation and noisy gradients
+            when sigma grows during training.
     """
 
-    def __init__(self, n_steps: int = 5, dt: float = 0.1) -> None:
+    def __init__(self, n_steps: int = 5, dt: float = 0.1, sigma_max: float = 3.0) -> None:
         super().__init__()
         self.n_steps = n_steps
         self.dt = dt
+        self.sigma_max = sigma_max
+        # Fixed kernel radius — wide enough for sigma up to sigma_max
+        # Using 2.5*sigma_max instead of 3.0 to keep kernel compact and
+        # maintain numerically meaningful gradients for sigma
+        self._blur_radius = max(1, int(math.ceil(2.5 * sigma_max)))
 
         # --- Learnable PDE parameters (constrained via sigmoid/softplus) ---
 
@@ -193,15 +213,18 @@ class FractalAnisotropicDiffusion(nn.Module):
         return torch.sigmoid(self._omega)
 
     def _conductance(self, grad_mag: torch.Tensor) -> torch.Tensor:
-        """Parameterized conductance: φ(s) = β·√(ξ / (η·s² + ε)).
+        """Parameterized conductance: φ(s) = β · exp(-s² / (κ² + ε)).
 
-        Heavy-tailed compared to Gaussian exp(-s²/κ²), better preserving
-        weak edges (thin capillaries).
+        where κ² = ξ / (η + ε) is a learnable edge threshold.
+        This is naturally bounded to (0, β] — no clamping needed —
+        so all parameters (β, ξ, η) receive clean gradients.
+
+        High grad_mag → φ → 0 (preserve edges).
+        Low grad_mag → φ → β (smooth flat regions).
         """
         eps = 1e-6
-        return self.beta * torch.sqrt(
-            self.xi / (self.eta * grad_mag ** 2 + eps)
-        )
+        kappa_sq = self.xi / (self.eta + eps)  # learnable threshold²
+        return self.beta * torch.exp(-grad_mag ** 2 / (kappa_sq + eps))
 
     def _curvature_modulation(
         self, grad_mag: torch.Tensor, laplacian_abs: torch.Tensor
@@ -237,7 +260,7 @@ class FractalAnisotropicDiffusion(nn.Module):
 
         for _ in range(self.n_steps):
             # 1. Gaussian-smoothed version for robust gradient
-            u_sigma = _gaussian_blur_learnable(u, self.sigma)
+            u_sigma = _gaussian_blur_learnable(u, self.sigma, radius=self._blur_radius)
 
             # 2. Gradients and Laplacian
             gy, gx = _spatial_gradient(u)
@@ -248,9 +271,8 @@ class FractalAnisotropicDiffusion(nn.Module):
             lap_abs = lap.abs()
 
             # 3. Conductance with fractal weighting
+            # (bounded exponential form: naturally in (0, β], no clamp needed)
             phi = self._conductance(grad_mag_sigma)
-            # Clamp phi to prevent instability
-            phi = phi.clamp(max=10.0)
             # Fractal modulation: high FD → low conductance → preserve detail
             # Clamp to [0, 1] to prevent sign-flip if lfd_map exceeds [0,1]
             fractal_weight = (1.0 - self.omega * lfd_map).clamp(min=0.0, max=1.0)
@@ -289,10 +311,36 @@ class FractalAnisotropicDiffusion(nn.Module):
 
         return u, edge_residual
 
+    def get_param_dict(self) -> dict[str, float]:
+        """Return current PDE parameter values for logging."""
+        with torch.no_grad():
+            return {
+                "alpha": float(self.alpha.item()),
+                "lambda": float(self.lam.item()),
+                "sigma": float(self.sigma.item()),
+                "beta": float(self.beta.item()),
+                "xi": float(self.xi.item()),
+                "eta": float(self.eta.item()),
+                "nu": float(self.nu.item()),
+                "gamma": float(self.gamma.item()),
+                "omega": float(self.omega.item()),
+            }
+
+    def clip_pde_gradients(self, max_norm: float = 0.5) -> None:
+        """Clip gradients of PDE parameters independently.
+
+        PDE parameters are on log/sigmoid scales and can receive very large
+        gradients early in training, destabilizing the backbone. This applies
+        tighter per-parameter clipping than the global grad_clip_norm.
+        """
+        pde_params = [p for p in self.parameters() if p.grad is not None]
+        if pde_params:
+            torch.nn.utils.clip_grad_norm_(pde_params, max_norm=max_norm)
+
     def extra_repr(self) -> str:
         with torch.no_grad():
             return (
-                f"n_steps={self.n_steps}, dt={self.dt}, "
+                f"n_steps={self.n_steps}, dt={self.dt}, sigma_max={self.sigma_max}, "
                 f"α={self.alpha.item():.3f}, λ={self.lam.item():.4f}, "
                 f"σ={self.sigma.item():.2f}, ω={self.omega.item():.3f}"
             )

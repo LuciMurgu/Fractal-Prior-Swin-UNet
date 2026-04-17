@@ -422,6 +422,10 @@ def train(
                     if grad_clip_norm > 0:
                         scaler.unscale_(optimizer)
                         torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=grad_clip_norm)
+                    # PDE-specific tighter clipping (log/sigmoid params get large grads)
+                    _pde = getattr(model, 'fractal_diffusion', None)
+                    if _pde is not None and hasattr(_pde, 'clip_pde_gradients'):
+                        _pde.clip_pde_gradients(max_norm=0.5)
                     scaler.step(optimizer)
                     scaler.update()
                     optimizer.zero_grad()
@@ -430,6 +434,9 @@ def train(
                 if (step + 1) % accum_steps == 0 or (step + 1) == len(epoch_loader):
                     if grad_clip_norm > 0:
                         torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=grad_clip_norm)
+                    _pde = getattr(model, 'fractal_diffusion', None)
+                    if _pde is not None and hasattr(_pde, 'clip_pde_gradients'):
+                        _pde.clip_pde_gradients(max_norm=0.5)
                     optimizer.step()
                     optimizer.zero_grad()
 
@@ -442,6 +449,17 @@ def train(
         # --- Step LR scheduler at end of epoch ---
         if scheduler is not None:
             scheduler.step()
+
+        # --- Log PDE parameters at end of epoch ---
+        _pde_mod = getattr(model, 'fractal_diffusion', None)
+        if _pde_mod is not None and hasattr(_pde_mod, 'get_param_dict'):
+            import json as _json
+            pde_log_path = run_dir / "pde_params.jsonl"
+            pde_entry = {"epoch": epoch + 1, **_pde_mod.get_param_dict()}
+            with open(pde_log_path, "a") as _f:
+                _f.write(_json.dumps(pde_entry) + "\n")
+            if epoch == 0 or (epoch + 1) % 10 == 0:
+                print(f"  PDE params: {', '.join(f'{k}={v:.4f}' for k, v in pde_entry.items() if k != 'epoch')}")
 
         # --- C2: Save checkpoint_latest.pt EVERY epoch for crash recovery ---
         _latest_ckpt: Dict[str, Any] = {
