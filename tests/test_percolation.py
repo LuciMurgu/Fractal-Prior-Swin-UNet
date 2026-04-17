@@ -1,4 +1,4 @@
-"""Unit tests for percolation connectivity prior."""
+"""Unit tests for percolation connectivity prior (updated for spanning rule)."""
 
 import torch
 import pytest
@@ -7,6 +7,8 @@ from fractal_swin_unet.fractal.percolation import (
     compute_percolation_map,
     percolation_critical_threshold,
     _connected_components_largest_ratio,
+    _check_spanning,
+    cc_label,
 )
 
 
@@ -42,22 +44,17 @@ class TestPercolationCriticalThreshold:
         assert p_c == 1.0  # normalized uniform → max threshold
 
     def test_dense_structure(self):
-        """High-contrast image with broad structure → high critical threshold.
-
-        Dense regions percolate even at strict (high) thresholds.
-        """
+        """Image with spanning structure → high critical threshold."""
         patch = torch.zeros(32, 32)
-        patch[:, :24] = 1.0  # 75% of pixels are bright
+        patch[:, :24] = 1.0  # spans top-to-bottom (all rows covered)
         p_c = percolation_critical_threshold(patch)
-        # The bright region forms a spanning cluster at high threshold
         assert p_c >= 0.5
 
     def test_sparse_structure(self):
-        """Only a few pixels are bright → high threshold needed."""
+        """Only a few pixels are bright → low threshold."""
         patch = torch.zeros(32, 32)
-        patch[15, 15] = 1.0  # single bright pixel
+        patch[15, 15] = 1.0  # single bright pixel, does NOT span
         p_c = percolation_critical_threshold(patch)
-        # After normalization, single pixel can't span much
         assert p_c > 0.0
 
     def test_value_range(self):
@@ -74,6 +71,7 @@ class TestPercolationMap:
         assert perc_map.shape == (64, 64)
 
     def test_value_range(self):
+        """Raw p_c values are in [0, 1] (threshold grid range)."""
         image = torch.rand(3, 64, 64)
         perc_map = compute_percolation_map(image, window_size=16)
         assert perc_map.min() >= 0.0
