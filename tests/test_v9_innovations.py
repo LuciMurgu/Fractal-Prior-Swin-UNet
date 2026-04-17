@@ -29,8 +29,9 @@ def test_lacunarity_map_shape_and_range():
     image = torch.randn(3, 64, 64)
     lac = compute_lacunarity_map(image, window_size=16, box_sizes=(4, 8))
     assert lac.shape == (64, 64)
+    # Raw lacunarity ≥ 1.0 (var/mu^2 + 1), no per-image normalization
     assert lac.min() >= 0.0
-    assert lac.max() <= 1.0
+    assert torch.isfinite(lac).all()
 
 
 def test_gliding_box_lacunarity_scalar():
