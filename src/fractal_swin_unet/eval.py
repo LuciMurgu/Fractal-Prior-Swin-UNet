@@ -48,6 +48,16 @@ _load_config = load_config
 _apply_override = apply_override
 
 
+def _safe_logit(probs: torch.Tensor, eps: float = 1e-7) -> torch.Tensor:
+    """Numerically stable logit: clamp probabilities before log-odds.
+
+    When probabilities are exactly 0.0 or 1.0 (common after sigmoid at late
+    epochs), torch.logit() returns ±inf, which causes NaN losses and silently
+    corrupts early-stopping / checkpoint selection.
+    """
+    return probs.clamp(eps, 1.0 - eps).logit()
+
+
 def _build_model(cfg: dict[str, Any]) -> torch.nn.Module:
     """Build model from config — delegates to shared model_factory."""
     return _build_model_from_cfg(cfg)
@@ -330,10 +340,10 @@ def evaluate(cfg: dict[str, Any], use_synth_data: bool, checkpoint: str | None, 
 
     with torch.no_grad():
         if dataset_name == "hrf" and full_image and not use_synth_data:
-            val_loss = dice_bce_loss(val_probs.logit(), y_val)
+            val_loss = dice_bce_loss(_safe_logit(val_probs), y_val)
         else:
             val_probs = _compute_probs(x_val)
-            val_loss = dice_bce_loss(val_probs.logit(), y_val)
+            val_loss = dice_bce_loss(_safe_logit(val_probs), y_val)
 
     if use_fov and use_synth_data:
         fov_mask = (torch.ones_like(y_val[0, 0]) > 0)

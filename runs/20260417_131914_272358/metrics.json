@@ -1,0 +1,16 @@
+{
+  "train_dice": 0.6091470122337341,
+  "val_dice": 0.5838928818702698,
+  "checkpoint_path": "runs/20260417_131914_272358/checkpoint.pt",
+  "loss_total": 1.260227918624878,
+  "loss_dice": 0.3908197283744812,
+  "loss_bce": 0.869408130645752,
+  "loss_focal": 0.0,
+  "loss_cldice": 0.0,
+  "loss_soft_dbc": 0.0,
+  "loss_cbdice": 0.0,
+  "loss_skel_recall": 0.0,
+  "loss_fractal_bce": 0.0,
+  "loss_tv": 0.0,
+  "loss_curvature": 0.0
+}

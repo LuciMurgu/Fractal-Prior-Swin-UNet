@@ -1,0 +1,5 @@
+{
+  "tau": 0.5,
+  "num_samples": 1,
+  "mode": "patch"
+}
