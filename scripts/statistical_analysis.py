@@ -15,6 +15,12 @@ from pathlib import Path
 import numpy as np
 from scipy import stats
 
+from fractal_swin_unet.stats import (
+    bootstrap_ci,
+    cohens_d,
+    paired_wilcoxon,
+)
+
 RESULTS_DIR = Path("reports/overnight_chain/phase2_cross_dataset")
 OUTPUT_DIR = Path("reports/evidence_pack")
 
@@ -38,10 +44,7 @@ def per_image_metric(result: dict, metric_prefix: str) -> np.ndarray:
     return np.array([img[key] for img in result["per_image"]])
 
 
-def cohens_d(a: np.ndarray, b: np.ndarray) -> float:
-    """Paired Cohen's d."""
-    diff = a - b
-    return float(diff.mean() / (diff.std(ddof=1) + 1e-10))
+
 
 
 def main():
@@ -101,16 +104,8 @@ def main():
         d_cldice = cohens_d(f_cldice, b_cldice)
         d_dice = cohens_d(f_dice, b_dice)
 
-        # 95% CI for mean difference (bootstrap)
-        rng = np.random.default_rng(42)
-        boot_cldice = []
-        boot_dice = []
-        for _ in range(10000):
-            idx = rng.integers(0, n, size=n)
-            boot_cldice.append(diff_cldice[idx].mean())
-            boot_dice.append(diff_dice[idx].mean())
-        ci_cldice = np.percentile(boot_cldice, [2.5, 97.5])
-        ci_dice = np.percentile(boot_dice, [2.5, 97.5])
+        ci_cldice = bootstrap_ci(f_cldice, b_cldice, n_bootstrap=10000, seed=42)
+        ci_dice = bootstrap_ci(f_dice, b_dice, n_bootstrap=10000, seed=42)
 
         sig_cl = "***" if p_cl < 0.001 else "**" if p_cl < 0.01 else "*" if p_cl < 0.05 else "ns"
         sig_d = "***" if p_d < 0.001 else "**" if p_d < 0.01 else "*" if p_d < 0.05 else "ns"
@@ -128,6 +123,14 @@ def main():
         stat = {
             "dataset": ds,
             "n": n,
+            "b_cldice_mean": float(b_cldice.mean()),
+            "b_cldice_std": float(b_cldice.std(ddof=1)) if n > 1 else 0.0,
+            "f_cldice_mean": float(f_cldice.mean()),
+            "f_cldice_std": float(f_cldice.std(ddof=1)) if n > 1 else 0.0,
+            "b_dice_mean": float(b_dice.mean()),
+            "b_dice_std": float(b_dice.std(ddof=1)) if n > 1 else 0.0,
+            "f_dice_mean": float(f_dice.mean()),
+            "f_dice_std": float(f_dice.std(ddof=1)) if n > 1 else 0.0,
             "cldice_delta_mean": float(diff_cldice.mean()),
             "cldice_delta_ci_lo": float(ci_cldice[0]),
             "cldice_delta_ci_hi": float(ci_cldice[1]),
@@ -152,10 +155,12 @@ def main():
     with open(md_path, "w") as f:
         f.write("# Statistical Analysis — Paired Wilcoxon Signed-Rank Test\n\n")
         f.write("H₀: No difference between baseline and fractal clDice (per-image paired test)\n\n")
-        f.write("| Dataset | n | ΔclDice | 95% CI | p-value | Sig | Cohen's d | ΔDice | p (Dice) |\n")
-        f.write("|---------|---|---------|--------|---------|-----|-----------|-------|----------|\n")
+        f.write("| Dataset | n | Baseline (mean±std) | Fractal (mean±std) | ΔclDice | 95% CI | p-value | Sig | Cohen's d | ΔDice | p (Dice) |\n")
+        f.write("|---------|---|--------------------|--------------------|---------|--------|---------|-----|-----------|-------|----------|\n")
         for s in all_stats:
             f.write(f"| {s['dataset']} | {s['n']} | "
+                    f"{s['b_cldice_mean']:.4f}±{s['b_cldice_std']:.4f} | "
+                    f"{s['f_cldice_mean']:.4f}±{s['f_cldice_std']:.4f} | "
                     f"{s['cldice_delta_mean']:+.4f} | "
                     f"[{s['cldice_delta_ci_lo']:+.4f}, {s['cldice_delta_ci_hi']:+.4f}] | "
                     f"{s['cldice_p_value']:.4f} | "
