@@ -38,7 +38,7 @@ def build_model(cfg: dict[str, Any]) -> torch.nn.Module:
     depths = tuple(model_cfg.get("depths", [1, 1, 1]))
     drop_rate = float(model_cfg.get("drop_rate", 0.0))
 
-    if name == "baseline":
+    if name in ("baseline", "swin_unet"):
         return SwinUNetTiny(
             in_channels=in_channels,
             embed_dim=embed_dim,
