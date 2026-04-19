@@ -102,6 +102,10 @@ fractal_prior:
   enabled: true
   include_lacunarity: true
   include_percolation: true      # ← Full fractal stack
+  precompute_enabled: true         # ← Compute on full image, crop patches for free
+  caching_enabled: true
+  caching_mode: memory             # ← Cache in RAM
+  precompute_store_full: true
 
 wandb:
   enabled: true

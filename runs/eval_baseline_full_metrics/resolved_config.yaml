@@ -1,29 +1,14 @@
 seed: 42
 model:
-  name: fractal_prior
+  name: swin_unet
   in_channels: 3
   embed_dim: 32
   depths:
   - 1
   - 1
   - 1
-  enable_fractal_gate: false
-  alpha: 1.0
-  prior_fusion:
-    enabled: false
-  prior_channels: 1
-  fractal_spade:
-    enabled: false
-  fractal_diffusion_spade:
-    enabled: true
-    n_steps: 5
-    prior_channels: 5
-    hidden_dim: 32
-    use_hessian_direction: false
-  freq_geom:
-    enabled: false
 train:
-  epochs: 100
+  epochs: 200
   steps_per_epoch: 400
   batch_size: 1
   lr: 0.0003
@@ -63,7 +48,7 @@ data:
     brightness: 0.08
     contrast: 0.15
     gamma: 0.15
-  return_fractal_prior: true
+  return_fractal_prior: false
 eval:
   full_image: true
   threshold:
@@ -113,9 +98,7 @@ loss:
     weight: 0.25
     iter: 10
 fractal_prior:
-  enabled: true
-  include_lacunarity: true
-  include_percolation: true
+  enabled: false
 run:
-  id: opt_G_percolation
+  id: eval_baseline_full_metrics
   base: runs

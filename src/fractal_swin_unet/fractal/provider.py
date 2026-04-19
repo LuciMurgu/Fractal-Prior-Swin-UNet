@@ -103,6 +103,10 @@ class FractalPriorProvider:
         return make_cache_key(sample_id, self.engine.name, params)
 
     def get_full(self, sample_id: str, image_full: torch.Tensor) -> torch.Tensor:
+        """Compute full-image prior with all channels (LFD + lacunarity + percolation).
+
+        Returns (C, H, W) tensor, cached in memory or disk.
+        """
         if not self.config.enabled:
             raise ValueError("Fractal prior disabled.")
 
@@ -120,6 +124,35 @@ class FractalPriorProvider:
 
         prior_full = self.engine.compute_full(image_gray)
         prior_full = _normalize_map(prior_full, self.config.normalize_mode, self.config.normalize_eps)
+
+        # Ensure 3D
+        if prior_full.ndim == 2:
+            prior_full = prior_full.unsqueeze(0)
+
+        # Append lacunarity channel to full-image prior (so patches get it for free)
+        if self.config.include_lacunarity:
+            from .lacunarity import compute_lacunarity_map
+            height, width = prior_full.shape[-2], prior_full.shape[-1]
+            lac_window = max(32, min(height, width) // 3)
+            lac = compute_lacunarity_map(
+                image_full,
+                window_size=min(lac_window, min(height, width)),
+                box_sizes=(2, 4, 8, 16),
+            )
+            prior_full = torch.cat([prior_full, lac.unsqueeze(0)], dim=0)
+
+        # Append percolation channel
+        if self.config.include_percolation:
+            from .percolation import compute_percolation_map
+            height, width = prior_full.shape[-2], prior_full.shape[-1]
+            perc_grid = tuple(round(0.05 + i * 0.05, 2) for i in range(19))
+            perc_window = max(32, min(height, width) // 3)
+            perc = compute_percolation_map(
+                image_full,
+                window_size=min(perc_window, min(height, width)),
+                threshold_grid=perc_grid,
+            )
+            prior_full = torch.cat([prior_full, perc.unsqueeze(0)], dim=0)
 
         if self.config.caching_enabled and self.config.caching_mode == "memory":
             if self.config.precompute_store_full:
@@ -175,64 +208,58 @@ class FractalPriorProvider:
             raise ValueError("Fractal prior disabled.")
 
         if self.config.precompute_enabled and image_full is not None and patch_box is not None:
+            # Full-image path: get_full already includes LFD + lacunarity + percolation
             prior_full = self.get_full(sample_id, image_full)
             top, left, height, width = patch_box
-            prior_patch = prior_full[top : top + height, left : left + width]
+            result = prior_full[:, top : top + height, left : left + width]
         else:
             image_gray = _normalize_grayscale(image_patch, self.config.grayscale_mode).float()
             prior_patch = self.engine.compute_patch(image_gray)
             prior_patch = _normalize_map(prior_patch, self.config.normalize_mode, self.config.normalize_eps)
+            prior_patch = prior_patch.float()
 
-        prior_patch = prior_patch.float()
+            # PDE-only mode: skip LFD, return only PDE channels
+            if self.config.pde_channels_enabled and self.config.pde_only:
+                return self._get_pde_patch(sample_id, image_patch, patch_box)
 
-        # PDE-only mode: skip LFD, return only PDE channels
-        if self.config.pde_channels_enabled and self.config.pde_only:
-            return self._get_pde_patch(sample_id, image_patch, patch_box)
+            if self.config.multi_scale_enabled:
+                result = _build_multi_scale_stack(
+                    prior_patch,
+                    factors=self.config.multi_scale_factors,
+                    eps=self.config.normalize_eps,
+                    include_lacunarity=self.config.include_lacunarity,
+                    image_patch=image_patch,
+                )
+            else:
+                result = prior_patch
 
-        if self.config.multi_scale_enabled:
-            result = _build_multi_scale_stack(
-                prior_patch,
-                factors=self.config.multi_scale_factors,
-                eps=self.config.normalize_eps,
-                include_lacunarity=self.config.include_lacunarity,
-                image_patch=image_patch,
-            )
-        else:
-            result = prior_patch
+            # Ensure 3D (C, H, W) for channel concatenation
+            if result.ndim == 2:
+                result = result.unsqueeze(0)  # (1, H, W)
 
-        # Ensure 3D (C, H, W) for channel concatenation
-        if result.ndim == 2:
-            result = result.unsqueeze(0)  # (1, H, W)
+            # Append lacunarity channel (only when NOT using precompute path)
+            if self.config.include_lacunarity and not self.config.multi_scale_enabled:
+                from .lacunarity import compute_lacunarity_map
+                height, width = result.shape[-2], result.shape[-1]
+                lac_window = max(32, min(height, width) // 3)
+                lac = compute_lacunarity_map(
+                    image_patch,
+                    window_size=min(lac_window, min(height, width)),
+                    box_sizes=(2, 4, 8, 16),
+                )
+                result = torch.cat([result, lac.unsqueeze(0)], dim=0)
 
-        # Append lacunarity channel (when not already added via multi-scale)
-        if self.config.include_lacunarity and not self.config.multi_scale_enabled:
-            from .lacunarity import compute_lacunarity_map
-            height, width = result.shape[-2], result.shape[-1]
-            # Use larger window for denser spatial grid — min(16,H) produced
-            # only 5×5 grid on 96px patches → near-constant after interpolation.
-            # window=max(32, H//3) gives ~12×12 grid on 96px, preserving variance.
-            lac_window = max(32, min(height, width) // 3)
-            lac = compute_lacunarity_map(
-                image_patch,
-                window_size=min(lac_window, min(height, width)),
-                box_sizes=(2, 4, 8, 16),
-            )
-            result = torch.cat([result, lac.unsqueeze(0)], dim=0)
-
-        if self.config.include_percolation:
-            from .percolation import compute_percolation_map
-            height, width = result.shape[-2], result.shape[-1]
-            # Use finer 20-step grid for meaningful p_c variation.
-            # The default 9-step grid (0.1..0.9) is too coarse — most windows
-            # collapse to the same 1-2 threshold values.
-            perc_grid = tuple(round(0.05 + i * 0.05, 2) for i in range(19))  # 0.05..0.95
-            perc_window = max(32, min(height, width) // 3)
-            perc = compute_percolation_map(
-                image_patch,
-                window_size=min(perc_window, min(height, width)),
-                threshold_grid=perc_grid,
-            )
-            result = torch.cat([result, perc.unsqueeze(0)], dim=0)
+            if self.config.include_percolation:
+                from .percolation import compute_percolation_map
+                height, width = result.shape[-2], result.shape[-1]
+                perc_grid = tuple(round(0.05 + i * 0.05, 2) for i in range(19))
+                perc_window = max(32, min(height, width) // 3)
+                perc = compute_percolation_map(
+                    image_patch,
+                    window_size=min(perc_window, min(height, width)),
+                    threshold_grid=perc_grid,
+                )
+                result = torch.cat([result, perc.unsqueeze(0)], dim=0)
 
         # Append PDE channels if enabled
         if self.config.pde_channels_enabled:
