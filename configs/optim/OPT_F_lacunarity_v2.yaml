@@ -102,10 +102,12 @@ fractal_prior:
   enabled: true
   include_lacunarity: true
   include_percolation: false
-  precompute_enabled: true         # ← Compute on full image, crop patches for free
-  caching_enabled: true
-  caching_mode: memory             # ← Cache in RAM (640 images × ~2MB = ~1.3GB)
-  precompute_store_full: true
+  precompute:
+    enabled: true                  # ← Compute on full image, crop patches for free
+    store_full_map_in_memory: true
+  caching:
+    enabled: true
+    mode: memory                   # ← Cache in RAM (640 images × ~2MB = ~1.3GB)
 
 wandb:
   enabled: true
