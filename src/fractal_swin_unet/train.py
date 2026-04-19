@@ -328,6 +328,25 @@ def train(
     lfd_params = LFDParams()
     loss_fn = CompositeLoss(cfg.get("loss", {})).to(device)
 
+    # --- W&B logging (optional) ---
+    wandb_run = None
+    wandb_cfg = cfg.get("wandb", {})
+    if wandb_cfg.get("enabled", False):
+        try:
+            import wandb
+            wandb_run = wandb.init(
+                project=wandb_cfg.get("project", "fractal-swin-unet"),
+                name=run_id or run_dir.name,
+                config=cfg,
+                dir=str(run_dir),
+                resume="allow",
+                tags=wandb_cfg.get("tags", []),
+            )
+            print(f"W&B logging enabled: {wandb_run.url}")
+        except Exception as e:
+            print(f"WARNING: W&B init failed ({e}), continuing without logging")
+            wandb_run = None
+
     samples = _prepare_manifest(cfg, use_synth_data=use_synth_data)
     write_manifest_and_hash(run_dir, samples)
 
@@ -461,6 +480,19 @@ def train(
                 loss_keys = ", ".join([f"{k}={v:.4f}" for k, v in breakdown.items()])
                 print(f"Epoch {epoch} step {step} loss {loss.item() * accum_steps:.4f} dice {score.item():.4f} lr {cur_lr:.2e} {loss_keys}")
 
+            # --- W&B step logging ---
+            if wandb_run is not None and step % 50 == 0:
+                global_step = epoch * steps_per_epoch + step
+                log_dict = {
+                    "train/loss": float(loss.item() * accum_steps),
+                    "train/dice": float(score.item()),
+                    "train/lr": optimizer.param_groups[0]["lr"],
+                    "train/epoch": epoch,
+                }
+                for k, v in breakdown.items():
+                    log_dict[f"train/{k}"] = v
+                wandb_run.log(log_dict, step=global_step)
+
         # --- Step LR scheduler at end of epoch ---
         if scheduler is not None:
             scheduler.step()
@@ -578,6 +610,21 @@ def train(
                         f"NEW_BEST_FULL_EVAL epoch={epoch + 1} best_dice={best_full_eval_dice:.4f} "
                         f"best_cldice={best_full_eval_cldice:.4f} tau*={best_tau:.2f} ckpt={best_ckpt_path}"
                     )
+                # --- W&B eval logging ---
+                if wandb_run is not None:
+                    global_step = (epoch + 1) * steps_per_epoch
+                    eval_log = {
+                        "eval/dice": epoch_best_dice,
+                        "eval/cldice": epoch_cldice,
+                        "eval/tau_star": float(sweep["tau_star"]),
+                        "eval/best_dice": best_full_eval_dice,
+                        "eval/best_cldice": best_full_eval_cldice,
+                    }
+                    # Add all sweep metrics
+                    for k in ["se_tau_star", "sp_tau_star", "acc_tau_star", "f1_tau_star", "auc_roc"]:
+                        if k in sweep:
+                            eval_log[f"eval/{k}"] = float(sweep[k])
+                    wandb_run.log(eval_log, step=global_step)
             except torch.cuda.OutOfMemoryError:
                 print(
                     f"WARNING: OOM during full-image eval at epoch {epoch + 1}. "
@@ -678,6 +725,11 @@ def train(
         metrics["best_checkpoint_path"] = str(run_dir / "checkpoint_best.pt")
     metrics.update(breakdown)
     write_metrics(run_dir, metrics)
+
+    # --- W&B finalize ---
+    if wandb_run is not None:
+        wandb_run.summary.update(metrics)
+        wandb_run.finish()
 
 
 def main() -> None:

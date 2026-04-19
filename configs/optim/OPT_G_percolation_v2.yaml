@@ -102,3 +102,8 @@ fractal_prior:
   enabled: true
   include_lacunarity: true
   include_percolation: true      # ← Full fractal stack
+
+wandb:
+  enabled: true
+  project: fractal-swin-unet
+  tags: ["OPT-G", "percolation", "lacunarity", "clDice-optimized", "300ep"]
