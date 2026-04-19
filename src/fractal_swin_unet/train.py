@@ -330,8 +330,11 @@ def train(
         train_indices: List[int] = []
     elif dataset_name == "hrf":
         dataset = build_dataset(cfg)
+        # CRITICAL: inject split-assigned samples so train/val filtering works.
+        dataset.manifest = samples
         train_indices = [i for i, s in enumerate(dataset.manifest) if s.get("split") == "train"]
         if not train_indices:
+            print(f"WARNING: No train samples found in manifest splits: {set(s.get('split') for s in dataset.manifest)}")
             train_indices = list(range(len(dataset)))
         loader = None
     else:
@@ -579,6 +582,8 @@ def train(
             val_batch = _make_synth_batch(val_samples, cfg, seed + 1, batch_size=1)
         elif dataset_name == "hrf":
             dataset = build_dataset(cfg)
+            # CRITICAL: inject split-assigned samples for proper val filtering.
+            dataset.manifest = samples
             val_indices = [i for i, s in enumerate(dataset.manifest) if s.get("split") == "val"]
             if not val_indices:
                 val_indices = [i for i, s in enumerate(dataset.manifest) if s.get("split") == "train"]
