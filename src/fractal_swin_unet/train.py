@@ -495,9 +495,11 @@ def train(
                 model.eval()
                 val_indices = [i for i, s in enumerate(dataset.manifest) if s.get("split") == "val"]
                 if not val_indices:
-                    val_indices = [i for i, s in enumerate(dataset.manifest) if s.get("split") == "train"]
-                if not val_indices:
-                    val_indices = list(range(len(dataset)))
+                    raise ValueError(
+                        f"No val samples in dataset.manifest for inline full_eval! "
+                        f"Available splits: {set(s.get('split') for s in dataset.manifest)}. "
+                        f"Check that _prepare_manifest() assigned splits correctly."
+                    )
                 if full_eval_max_samples > 0:
                     val_indices = val_indices[:full_eval_max_samples]
                 probs_list = []
@@ -586,9 +588,10 @@ def train(
             dataset.manifest = samples
             val_indices = [i for i, s in enumerate(dataset.manifest) if s.get("split") == "val"]
             if not val_indices:
-                val_indices = [i for i, s in enumerate(dataset.manifest) if s.get("split") == "train"]
-            if not val_indices:
-                val_indices = list(range(len(dataset)))
+                raise ValueError(
+                    f"No val samples in manifest for end-of-training eval! "
+                    f"Available splits: {set(s.get('split') for s in dataset.manifest)}"
+                )
 
             val_sample = dataset[val_indices[0]]
             val_patch_ds = InfiniteRandomPatchDataset(

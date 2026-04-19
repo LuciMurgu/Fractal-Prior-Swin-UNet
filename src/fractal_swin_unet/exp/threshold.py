@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Iterable, List, Dict, Any
+from typing import Iterable, List, Dict, Any, Optional
 
 import torch
 
@@ -25,6 +25,7 @@ def sweep_thresholds(
     probs: torch.Tensor,
     gts: torch.Tensor,
     grid: Iterable[float],
+    mask: Optional[torch.Tensor] = None,
 ) -> Dict[str, Any]:
     """Sweep thresholds and compute Dice for each.
 
@@ -32,6 +33,10 @@ def sweep_thresholds(
         probs: Probability tensor of shape (B, 1, H, W).
         gts: Ground truth tensor of shape (B, 1, H, W).
         grid: Iterable of threshold values.
+        mask: Optional FOV mask (B, 1, H, W). When provided, metrics that
+            are sensitive to background pixels (specificity, accuracy, AUC)
+            are computed only within the masked region. Without this, pixels
+            outside the FOV inflate specificity/accuracy as free TNs.
 
     Returns:
         Dict with grid, dice_per_tau, tau_star, best_dice, dice_at_0_5,
@@ -43,7 +48,7 @@ def sweep_thresholds(
 
     for tau in grid_list:
         preds = (probs >= tau).float()
-        dice_val = float(dice_score(preds, gts).item())
+        dice_val = float(dice_score(preds, gts, mask=mask).item())
         dice_per_tau.append(dice_val)
 
     best_idx = max(range(len(dice_per_tau)), key=lambda i: (dice_per_tau[i], -grid_list[i]))
@@ -53,24 +58,24 @@ def sweep_thresholds(
     preds_at_tau_star = (probs >= tau_star).float()
     preds_at_0_5 = (probs >= 0.5).float()
 
-    dice_at_0_5 = float(dice_score(preds_at_0_5, gts).item())
-    cldice_at_tau_star = float(cldice_score(preds_at_tau_star, gts).item())
-    cldice_at_0_5 = float(cldice_score(preds_at_0_5, gts).item())
+    dice_at_0_5 = float(dice_score(preds_at_0_5, gts, mask=mask).item())
+    cldice_at_tau_star = float(cldice_score(preds_at_tau_star, gts, mask=mask).item())
+    cldice_at_0_5 = float(cldice_score(preds_at_0_5, gts, mask=mask).item())
 
-    # Journal metrics at tau_star
-    se_tau = float(sensitivity(preds_at_tau_star, gts).item())
-    sp_tau = float(specificity(preds_at_tau_star, gts).item())
-    acc_tau = float(pixel_accuracy(preds_at_tau_star, gts).item())
-    f1_tau = float(f1_score(preds_at_tau_star, gts).item())
+    # Journal metrics at tau_star — pass mask to exclude outside-FOV pixels
+    se_tau = float(sensitivity(preds_at_tau_star, gts, mask=mask).item())
+    sp_tau = float(specificity(preds_at_tau_star, gts, mask=mask).item())
+    acc_tau = float(pixel_accuracy(preds_at_tau_star, gts, mask=mask).item())
+    f1_tau = float(f1_score(preds_at_tau_star, gts, mask=mask).item())
 
     # Journal metrics at 0.5
-    se_05 = float(sensitivity(preds_at_0_5, gts).item())
-    sp_05 = float(specificity(preds_at_0_5, gts).item())
-    acc_05 = float(pixel_accuracy(preds_at_0_5, gts).item())
-    f1_05 = float(f1_score(preds_at_0_5, gts).item())
+    se_05 = float(sensitivity(preds_at_0_5, gts, mask=mask).item())
+    sp_05 = float(specificity(preds_at_0_5, gts, mask=mask).item())
+    acc_05 = float(pixel_accuracy(preds_at_0_5, gts, mask=mask).item())
+    f1_05 = float(f1_score(preds_at_0_5, gts, mask=mask).item())
 
-    # AUC-ROC (threshold-independent)
-    auc_val = auroc(probs, gts)
+    # AUC-ROC (threshold-independent) — pass mask
+    auc_val = auroc(probs, gts, mask=mask)
 
     return {
         "grid": grid_list,
@@ -90,4 +95,3 @@ def sweep_thresholds(
         "f1_at_0_5": f1_05,
         "auc_roc": auc_val,
     }
-

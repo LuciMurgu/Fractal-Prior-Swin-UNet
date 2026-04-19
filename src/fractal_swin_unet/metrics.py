@@ -227,6 +227,11 @@ def f1_score(
     fp = (preds * (1 - targets)).sum()
     fn = ((1 - preds) * targets).sum()
 
+    # Degenerate case: no foreground in either prediction or GT.
+    # Without this guard, eps inflates precision & recall to 1.0 each.
+    if tp + fp + fn < 1.0:
+        return torch.tensor(0.0, device=preds.device)
+
     precision = (tp + eps) / (tp + fp + eps)
     recall = (tp + eps) / (tp + fn + eps)
     return (2 * precision * recall + eps) / (precision + recall + eps)
