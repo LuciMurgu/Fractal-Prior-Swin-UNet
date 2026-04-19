@@ -1,7 +1,7 @@
-# OPT-F v2: LFD + Lacunarity — clDice-optimized (150 epochs)
+# OPT-F v2: LFD + Lacunarity — clDice-optimized (300 epochs)
 # Purpose: Measure lacunarity's contribution with topology-aware losses.
-# Based on OPT-D v2 architecture with lacunarity channel + skeleton recall.
-# Key change: higher clDice weight (0.35) + skeleton_recall (0.15) for max topology.
+# Key changes vs OPT-D: lacunarity channel + clDice(0.35) + skel_recall(0.15)
+# + 10-epoch warmup + clDice-based checkpoint selection
 seed: 42
 model:
   name: fractal_prior
@@ -12,32 +12,34 @@ model:
   alpha: 1.0
   prior_fusion:
     enabled: false
-  prior_channels: 1              # LFD is single-channel (lacunarity appended in provider)
+  prior_channels: 1
   fractal_spade:
     enabled: false
   fractal_diffusion_spade:
     enabled: true
     n_steps: 5
-    prior_channels: 4            # 3 PDE channels + 1 lacunarity = 4
+    prior_channels: 4            # [LFD, PDE_enhanced, PDE_edge, lacunarity]
     hidden_dim: 32
     use_hessian_direction: false
   freq_geom:
     enabled: false
 
 train:
-  epochs: 150
+  epochs: 300
   steps_per_epoch: 400
   batch_size: 1
   lr: 0.0003
   weight_decay: 0.01
   amp: true
   grad_clip_norm: 1.0
+  checkpoint_best_metric: cldice  # ← Save best checkpoint by clDice, not Dice
   scheduler:
     type: cosine
     eta_min: 1e-6
-  save_every_epochs: 10
-  full_eval_every_epochs: 10
-  full_eval_max_samples: 5
+    warmup_epochs: 10            # ← Linear warmup to protect PDE params
+  save_every_epochs: 25
+  full_eval_every_epochs: 25     # ← 300/25 = 12 evals (balanced compute vs selection)
+  full_eval_max_samples: 10      # ← More images for reliable checkpoint selection
 
 data:
   dataset: hrf
@@ -45,7 +47,7 @@ data:
   manifest_path: manifests/fives.jsonl
   split:
     mode: sample
-    seed: 123                    # Same split as all OPT configs
+    seed: 123
     ratios: { train: 0.8, val: 0.1, test: 0.1 }
   patch_size: [384, 384]
   patch_sampling:
@@ -58,8 +60,8 @@ data:
   return_fov: false
   photometric_aug:
     enabled: true
-    brightness: 0.08
-    contrast: 0.15
+    brightness: 0.12             # ← Slightly stronger (was 0.08) for 300 epochs
+    contrast: 0.20               # ← Slightly stronger (was 0.15)
     gamma: 0.15
   return_fractal_prior: true
 
@@ -90,13 +92,13 @@ loss:
     weight: 0.1
   cldice:
     enabled: true
-    weight: 0.35                 # ← Higher weight for topology (was 0.25)
-    iter: 10
+    weight: 0.35                 # Higher weight for topology
+    iter: 15                     # ← Better skeleton approx (was 10)
   skeleton_recall:
     enabled: true
-    weight: 0.15                 # ← Added: penalizes missing thin vessels
+    weight: 0.15                 # Penalizes missing thin vessels
 
 fractal_prior:
   enabled: true
-  include_lacunarity: true       # Lacunarity channel
+  include_lacunarity: true
   include_percolation: false

@@ -269,10 +269,22 @@ def train(
 
     # --- LR scheduler ---
     scheduler: torch.optim.lr_scheduler.LRScheduler | None = None
+    warmup_epochs = int(sched_cfg.get("warmup_epochs", 0))
     if sched_type == "cosine":
-        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-            optimizer, T_max=max(epochs, 1), eta_min=sched_eta_min,
+        cosine_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+            optimizer, T_max=max(epochs - warmup_epochs, 1), eta_min=sched_eta_min,
         )
+        if warmup_epochs > 0:
+            warmup_scheduler = torch.optim.lr_scheduler.LinearLR(
+                optimizer, start_factor=0.01, total_iters=warmup_epochs,
+            )
+            scheduler = torch.optim.lr_scheduler.SequentialLR(
+                optimizer, schedulers=[warmup_scheduler, cosine_scheduler],
+                milestones=[warmup_epochs],
+            )
+            print(f"Scheduler: {warmup_epochs}-epoch linear warmup + cosine decay")
+        else:
+            scheduler = cosine_scheduler
     elif sched_type == "step":
         step_size = int(sched_cfg.get("step_size", 30))
         gamma = float(sched_cfg.get("gamma", 0.1))
@@ -539,7 +551,13 @@ def train(
                 sweep = sweep_thresholds(val_probs, y_val, _get_threshold_grid(cfg))
                 epoch_best_dice = float(sweep["best_dice"])
                 epoch_cldice = float(sweep.get("best_cldice", 0.0))
-                if epoch_best_dice > best_full_eval_dice:
+                # Checkpoint selection: save best by Dice or clDice depending on config
+                ckpt_metric = train_cfg.get("checkpoint_best_metric", "dice")
+                if ckpt_metric == "cldice":
+                    is_new_best = epoch_cldice > best_full_eval_cldice
+                else:
+                    is_new_best = epoch_best_dice > best_full_eval_dice
+                if is_new_best:
                     best_full_eval_dice = epoch_best_dice
                     best_full_eval_cldice = epoch_cldice
                     best_full_eval_epoch = epoch + 1
