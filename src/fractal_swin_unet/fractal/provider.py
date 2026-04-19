@@ -208,17 +208,30 @@ class FractalPriorProvider:
         if self.config.include_lacunarity and not self.config.multi_scale_enabled:
             from .lacunarity import compute_lacunarity_map
             height, width = result.shape[-2], result.shape[-1]
+            # Use larger window for denser spatial grid — min(16,H) produced
+            # only 5×5 grid on 96px patches → near-constant after interpolation.
+            # window=max(32, H//3) gives ~12×12 grid on 96px, preserving variance.
+            lac_window = max(32, min(height, width) // 3)
             lac = compute_lacunarity_map(
                 image_patch,
-                window_size=min(16, min(height, width)),
-                box_sizes=(2, 4, 8),
+                window_size=min(lac_window, min(height, width)),
+                box_sizes=(2, 4, 8, 16),
             )
             result = torch.cat([result, lac.unsqueeze(0)], dim=0)
 
-        # Append percolation channel
         if self.config.include_percolation:
             from .percolation import compute_percolation_map
-            perc = compute_percolation_map(image_patch)
+            height, width = result.shape[-2], result.shape[-1]
+            # Use finer 20-step grid for meaningful p_c variation.
+            # The default 9-step grid (0.1..0.9) is too coarse — most windows
+            # collapse to the same 1-2 threshold values.
+            perc_grid = tuple(round(0.05 + i * 0.05, 2) for i in range(19))  # 0.05..0.95
+            perc_window = max(32, min(height, width) // 3)
+            perc = compute_percolation_map(
+                image_patch,
+                window_size=min(perc_window, min(height, width)),
+                threshold_grid=perc_grid,
+            )
             result = torch.cat([result, perc.unsqueeze(0)], dim=0)
 
         # Append PDE channels if enabled
@@ -257,10 +270,11 @@ def _build_multi_scale_stack(
 
     if include_lacunarity and image_patch is not None:
         from .lacunarity import compute_lacunarity_map
+        lac_window = max(32, min(height, width) // 3)
         lac = compute_lacunarity_map(
             image_patch,
-            window_size=min(16, min(height, width)),
-            box_sizes=(2, 4, 8),
+            window_size=min(lac_window, min(height, width)),
+            box_sizes=(2, 4, 8, 16),
         )
         channels.append(lac)
 
