@@ -237,12 +237,14 @@ class FractalPriorSwinUNet(nn.Module):
                 # Use the original lfd_map (1-ch) and original image (from x before stem)
                 # We stored the pre-stem input in the forward call
                 gray = self._input_gray  # (B, 1, H, W) set earlier
-                lfd_1ch = lfd_map.mean(dim=1, keepdim=True)  # (B, 1, H, W)
+                lfd_1ch = lfd_map[:, 0:1]  # (B, 1, H, W) — first channel is always LFD
+                # Extra channels (lacunarity, percolation) come after index 0
+                extra_prior = lfd_map[:, 1:] if lfd_map.shape[1] > 1 else None
 
                 # Run learnable PDE
                 enhanced, edge_residual = self.fractal_diffusion(gray, lfd_1ch)
 
-                # Build prior stack: [LFD, enhanced, edge_residual, (cos θ, sin θ)]
+                # Build prior stack: [LFD, enhanced, edge_residual, (extras...)]
                 prior_channels = [lfd_1ch, enhanced, edge_residual]
 
                 if self.use_hessian_direction:
@@ -252,6 +254,10 @@ class FractalPriorSwinUNet(nn.Module):
                         gray, sigmas=(1.0, 2.0, 4.0)
                     )  # (B, 2, H, W)
                     prior_channels.append(dir_field)
+
+                # Append extra prior channels (lacunarity, percolation, etc.)
+                if extra_prior is not None and extra_prior.shape[1] > 0:
+                    prior_channels.append(extra_prior)
 
                 prior_stack = torch.cat(prior_channels, dim=1)
 
