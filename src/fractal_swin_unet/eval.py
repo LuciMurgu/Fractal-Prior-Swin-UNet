@@ -314,9 +314,17 @@ def evaluate(cfg: dict[str, Any], use_synth_data: bool, checkpoint: str | None, 
         fov_mask = None
     elif dataset_name == "hrf":
         dataset = build_dataset(cfg)
+        # CRITICAL: inject split-assigned samples so val/test filtering works.
+        # build_dataset() loads raw manifest without splits; _prepare_manifest()
+        # (called above) has the correctly-assigned splits.
+        dataset.manifest = samples
         val_indices = [i for i, s in enumerate(dataset.manifest) if s.get("split") == "val"]
         if not val_indices:
-            val_indices = list(range(len(dataset)))
+            raise ValueError(
+                "No val samples found after split assignment! "
+                f"Check split config. Manifest has {len(dataset.manifest)} samples, "
+                f"splits: {set(s.get('split') for s in dataset.manifest)}"
+            )
         if full_image:
             x_val = None
             val_probs, y_val, fov_mask = _collect_full_image_split(dataset, val_indices)
@@ -396,7 +404,8 @@ def evaluate(cfg: dict[str, Any], use_synth_data: bool, checkpoint: str | None, 
             # M5: Reuse the dataset object built for val, don't rebuild
             test_indices = [i for i, s in enumerate(dataset.manifest) if s.get("split") == "test"]
             if not test_indices:
-                test_indices = list(range(len(dataset)))
+                print("  ⚠ No test samples found — skipping test eval")
+                test_indices = []
             if full_image:
                 x_test = None
                 test_probs, y_test, test_fov = _collect_full_image_split(dataset, test_indices)
