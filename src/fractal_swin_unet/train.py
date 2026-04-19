@@ -638,11 +638,15 @@ def train(
         final_ckpt["tau_star"] = best_tau
     torch.save(final_ckpt, checkpoint_path)
     print(f"Saved checkpoint to {checkpoint_path}")
-    print(f"FINAL_METRICS train_dice={final_train_dice:.4f} val_dice={final_val_dice:.4f}")
+    print(f"FINAL_METRICS last_batch_soft_dice={final_train_dice:.4f} last_patch_val_soft_dice={final_val_dice:.4f}")
 
     metrics = {
-        "train_dice": final_train_dice,
-        "val_dice": final_val_dice,
+        # NOTE: These are NOT full-image metrics. They are:
+        #   last_batch_soft_dice: soft Dice on the very last training mini-batch
+        #   last_patch_val_soft_dice: soft Dice on a single random val patch
+        # For publication metrics, use best_full_eval_dice (tiled, threshold-swept).
+        "last_batch_soft_dice": final_train_dice,
+        "last_patch_val_soft_dice": final_val_dice,
         "checkpoint_path": str(checkpoint_path),
     }
     if best_full_eval_epoch > 0:
